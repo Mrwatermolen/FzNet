@@ -8,8 +8,7 @@
 namespace fz::net {
 
 class Loop {
-
-public:
+ public:
   Loop();
 
   Loop(const Loop &) = delete;
@@ -30,14 +29,14 @@ public:
 
   auto &getIoContext() { return _io_context; }
 
-private:
+ private:
+  std::thread _thread;
   asio::io_context _io_context;
   asio::io_context::work _work;
-  std::thread _thread;
 
   auto run() -> void;
 };
 
-} // namespace fz::net
+}  // namespace fz::net
 
-#endif // __FZ_NET_LOOP_H__
+#endif  // __FZ_NET_LOOP_H__

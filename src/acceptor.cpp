@@ -43,7 +43,7 @@ auto Acceptor::accept() -> void {
       new_session->socket(), [this, new_session](const auto& ec) {
         if (ec) {
           LOG_ERROR("Acceptor error: {}", ec.message());
-          new_session->close();
+          new_session->disconnect();
           return;
         }
 

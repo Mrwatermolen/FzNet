@@ -2,6 +2,7 @@
 
 #include <asio.hpp>
 #include <cstddef>
+#include <mutex>
 
 #include "net/common/buffer.h"
 #include "net/common/log.h"
@@ -9,34 +10,112 @@
 namespace fz::net {
 
 auto Session::start() -> void {
-  // Can't post read to loop here, because the lifetime of the session needs to
-  // be.
   _id = reinterpret_cast<std::uint64_t>(this);
+  if (!socket().is_open()) {
+    LOG_ERROR("Session ID: {}. Socket is not open.", _id);
+    return;
+  }
+
+  // race condition?
   _remote_ip = _socket.remote_endpoint().address().to_string();
   _remote_port = _socket.remote_endpoint().port();
   LOG_DEBUG("Session ID: {}. Remote: {}:{}. Start", _id, _remote_ip,
             _remote_port);
+  if (_connect_callback) {
+    _connect_callback(shared_from_this());
+  }
+
+  auto self = shared_from_this();
   read();
 }
 
-auto Session::close() -> void {
+auto Session::disconnect() -> void {
   auto self = shared_from_this();
-  LOG_DEBUG("Session close.", "");
-  _socket.close();
+  LOG_DEBUG("Session ID: {}. Remote: {}:{}. Disconnect.", _id, _remote_ip,
+            _remote_port);
+  if (_disconnect_callback) {
+    _disconnect_callback(shared_from_this());
+  }
+
+  _loop->postTask([this, self] {
+    if (_socket.is_open()) {
+      _socket.close();
+    }
+  });
+}
+
+auto Session::connect(const std::string& ip, std::uint16_t port, bool reconnect)
+    -> void {
+  LOG_DEBUG("Session ID: {}. Remote: {}:{}. Connect.", _id, ip, port);
+
+  auto ep = asio::ip::tcp::endpoint(asio::ip::make_address(ip), port);
+  auto self = shared_from_this();
+
+  socket().async_connect(ep, [this, self, ip, port, reconnect](const auto& ec) {
+    _remote_ip = ip;
+    _remote_port = port;
+    _reconnect = reconnect;
+    if (ec) {
+      LOG_ERROR(
+          "Session ID: {}. Remote: {}:{}. error: {}. retry. Reconnect: "
+          "{}. "
+          "Remain "
+          "reconnect times: {}.",
+          _id, _remote_ip, _remote_port, ec.message(), _reconnect,
+          _reconnect_times);
+
+      if (!_reconnect || _reconnect_times <= 0) {
+        LOG_DEBUG(
+            "Session ID: {}. Remote: {}:{}. Reconnect {} or remain reconnect "
+            "{} less than 0. Cancel reconnect.",
+            _id, _remote_ip, _remote_port, _reconnect, _reconnect_times);
+
+        this->disconnect();
+        return;
+      }
+
+      _reconnect_times--;
+      _socket.close();
+      this->reconnect(_remote_ip, _remote_port);
+      return;
+    }
+
+    LOG_DEBUG(
+        "Session ID: {}. Remote: {}:{}. Connect done. Reconnect: {}. Remain "
+        "reconnect times: {}.",
+        _id, _remote_ip, _remote_port, _reconnect, _reconnect_times);
+    start();
+  });
+}
+
+auto Session::reconnect(const std::string& ip, std::uint16_t port) -> void {
+  LOG_DEBUG("Session ID: {}. Remote: {}:{}. Reconnect pending.", _id, ip, port);
+
+  auto self = shared_from_this();
+  _timer.expires_after(asio::chrono::milliseconds(_reconnect_delay_ms));
+  _timer.async_wait([this, self, ip, port](const auto& ec) {
+    if (ec) {
+      LOG_ERROR(
+          "Session ID: {}. Remote: {}:{}. Reconnect error: {}. Remain "
+          "reconnect times: {}.",
+          _id, ip, port, ec.message(), _reconnect_times);
+      return;
+    }
+
+    connect(ip, port, _reconnect);
+  });
 }
 
 auto Session::send(const Buffer& buffer) -> void {
   auto self = shared_from_this();
   LOG_DEBUG("Session ID: {}. Remote: {}:{}. Send {} bytes.", _id, _remote_ip,
             _remote_port, buffer.readableBytes());
-  _unsent_buffers.push(buffer);
-  auto still_writing = !_write_buffer.empty();
-  if (still_writing) {
-    return;
+
+  {
+    std::scoped_lock lock(_mutex);
+    _unsent_buffers.push(buffer);
   }
 
-  _write_buffer.resize(
-      Buffer::DEFAULT_SIZE);  // avoid buffer from bigging too much
   _loop->postTask([this] { write(); });
 }
 
@@ -53,7 +132,7 @@ auto Session::read() -> void {
       [self, this](const auto& ec, auto len) {
         if (ec) {
           LOG_ERROR("Session error: {}", ec.message());
-          close();
+          disconnect();
           return;
         }
 
@@ -75,10 +154,19 @@ auto Session::write() -> void {
   auto self = shared_from_this();
   LOG_DEBUG("Session ID: {}. Remote: {}:{}. Write.", _id, _remote_ip,
             _remote_port);
-  while (!_unsent_buffers.empty()) {
-    auto& buffer = _unsent_buffers.front();
-    _write_buffer.append(buffer.readBegin(), buffer.readableBytes());
-    _unsent_buffers.pop();
+
+  auto still_writing = !_write_buffer.empty();
+  if (!still_writing) {
+    _write_buffer.resize(
+        Buffer::DEFAULT_SIZE);  // avoid buffer from bigging too much
+    {
+      std::scoped_lock lock(_mutex);
+      while (!_unsent_buffers.empty()) {
+        auto& buffer = _unsent_buffers.front();
+        _write_buffer.append(buffer.readBegin(), buffer.readableBytes());
+        _unsent_buffers.pop();
+      }
+    }
   }
 
   socket().async_write_some(
@@ -86,7 +174,7 @@ auto Session::write() -> void {
       [self, this](const auto& ec, auto len) {
         if (ec) {
           LOG_ERROR("Session error: {}", ec.message());
-          close();
+          disconnect();
           return;
         }
 
