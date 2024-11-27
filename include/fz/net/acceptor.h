@@ -4,8 +4,9 @@
 #include <functional>
 #include <memory>
 #include <string_view>
+#include <cstdint>
 
-#include "net/loop.h"
+#include "fz/net/loop.h"
 
 namespace fz::net {
 
@@ -13,11 +14,11 @@ class Session;
 
 class Acceptor {
  public:
-  Acceptor(std::shared_ptr<Loop> loop, std::string_view ip, uint16_t port);
+  Acceptor(std::shared_ptr<Loop> loop, std::string_view ip, std::uint16_t port);
 
-  auto ip() const -> std::string_view { return _ip; }
+  [[nodiscard]] auto ip() const  { return _ip; }
 
-  auto port() const -> uint16_t { return _port; }
+  [[nodiscard]] auto port() const { return _port; }
 
   auto start() -> void;
 
@@ -35,7 +36,7 @@ class Acceptor {
   std::shared_ptr<Loop> _loop;
   asio::ip::tcp::acceptor _acceptor;
   std::string _ip;
-  uint16_t _port;
+  std::uint16_t _port;
   std::function<std::shared_ptr<Session>()> _new_session_callback;
 };
 

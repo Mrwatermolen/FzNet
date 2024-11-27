@@ -11,15 +11,15 @@ class Buffer {
  public:
   static constexpr std::size_t DEFAULT_SIZE = 1024;
 
-  auto capacity() const { return _buffer.size(); }
+  [[nodiscard]] auto capacity() const { return _buffer.size(); }
 
-  auto empty() const { return _writer_pos == _reader_pos; }
+  [[nodiscard]] auto empty() const { return _writer_pos == _reader_pos; }
 
-  auto full() const { return _writer_pos == _buffer.size(); }
+  [[nodiscard]] auto full() const { return _writer_pos == _buffer.size(); }
 
-  auto writeableBytes() const { return _buffer.size() - _writer_pos; }
+  [[nodiscard]] auto writeableBytes() const { return _buffer.size() - _writer_pos; }
 
-  auto readableBytes() const { return _writer_pos - _reader_pos; }
+  [[nodiscard]] auto readableBytes() const { return _writer_pos - _reader_pos; }
 
   auto writeBegin() { return _buffer.data() + _writer_pos; }
 
@@ -29,9 +29,9 @@ class Buffer {
 
   auto readEnd() { return _buffer.data() + _writer_pos; }
 
-  auto readBegin() const { return _buffer.data() + _reader_pos; }
+  [[nodiscard]] auto readBegin() const { return _buffer.data() + _reader_pos; }
 
-  auto readEnd() const { return _buffer.data() + _writer_pos; }
+  [[nodiscard]] auto readEnd() const { return _buffer.data() + _writer_pos; }
 
   auto hasWritten(std::size_t len) {
     _writer_pos += len;

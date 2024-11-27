@@ -1,8 +1,8 @@
-#include "net/loop.h"
+#include "fz/net/loop.h"
 
 namespace fz::net {
 
-Loop::Loop() : _work(_io_context) {}
+Loop::Loop() : _work{_io_context} {}
 
 Loop::~Loop() {
   if (_thread.joinable()) {

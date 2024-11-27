@@ -1,21 +1,17 @@
-#include "net/acceptor.h"
+#include "fz/net/acceptor.h"
 
-#include "net/common/log.h"
-#include "net/session.h"
+#include "fz/net/session.h"
 
 namespace fz::net {
 
 Acceptor::Acceptor(std::shared_ptr<Loop> loop, std::string_view ip,
-                   uint16_t port)
+                   std::uint16_t port)
     : _loop{std::move(loop)},
       _acceptor{_loop->getIoContext()},
       _ip{ip},
-      _port{port} {
-  LOG_INFO("Acceptor created.{}", "");
-}
+      _port{port} {}
 
 auto Acceptor::start() -> void {
-  LOG_INFO("Acceptor start.{}", "");
   _loop->postTask([this] { listen(); });
 }
 
@@ -27,8 +23,6 @@ auto Acceptor::setNewSessionCallback(
 }
 
 auto Acceptor::listen() -> void {
-  LOG_INFO("Acceptor listen.{}", "");
-  LOG_DEBUG("Acceptor listen on {}:{}", _ip, _port);
   auto endpoint = asio::ip::tcp::endpoint{asio::ip::make_address(_ip), _port};
   _acceptor.open(endpoint.protocol());
   _acceptor.set_option(asio::ip::tcp::acceptor::reuse_address(true));
@@ -37,28 +31,32 @@ auto Acceptor::listen() -> void {
   accept();
 }
 
+static auto handleAccept(const auto& ec, auto& new_session,
+                         const auto& acceptor) -> int {
+  if (ec) {
+    new_session->disconnect();
+    return 1;
+  }
+
+  new_session->start();
+
+  if (!acceptor.is_open()) {
+    return 1;
+  }
+
+  return 0;
+}
+
 auto Acceptor::accept() -> void {
   auto new_session = _new_session_callback();
-  _acceptor.async_accept(
-      new_session->socket(), [this, new_session](const auto& ec) {
-        if (ec) {
-          LOG_ERROR("Acceptor error: {}", ec.message());
-          new_session->disconnect();
-          return;
-        }
+  _acceptor.async_accept(new_session->socket(),
+                         [this, new_session](const auto& ec) {
+                           if (handleAccept(ec, new_session, _acceptor) != 0) {
+                             return;
+                           }
 
-        LOG_DEBUG("Acceptor accept. Remote: {}:{}",
-                  new_session->socket().remote_endpoint().address().to_string(),
-                  new_session->socket().remote_endpoint().port());
-        new_session->start();
-
-        if (!_acceptor.is_open()) {
-          LOG_WARN("Acceptor is not open.{}", "");
-          return;
-        }
-
-        accept();
-      });
+                           accept();
+                         });
 }
 
 }  // namespace fz::net

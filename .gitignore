@@ -1,8 +1,19 @@
-.vscode/
 tmp/
-build/
-out/
-.vs/
-.idea/
+install/
+
+apidoc/doc
+docs/_site
+docs/gathered
+_site
+doxygen
+docs/dev
+
+build*/
+
+.vscode
+
+.vs
+
+.idea
 
 .DS_Store

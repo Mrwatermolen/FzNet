@@ -9,8 +9,8 @@
 #include <queue>
 #include <utility>
 
-#include "net/common/buffer.h"
-#include "net/loop.h"
+#include "fz/net/common/buffer.h"
+#include "fz/net/loop.h"
 
 namespace fz::net {
 
@@ -21,6 +21,14 @@ class Session : public std::enable_shared_from_this<Session> {
   constexpr static auto DEFAULT_RECONNECT_DELAY_MS = 500;
 
  public:
+  Session(const Session&) = delete;
+
+  Session(Session&&) noexcept = delete;
+
+  auto operator=(const Session&) -> Session& = delete;
+
+  auto operator=(Session&&) noexcept -> Session& = delete;
+
   explicit Session(std::shared_ptr<Loop> loop)
       : _loop{std::move(loop)},
         _socket{_loop->getIoContext()},
@@ -29,9 +37,9 @@ class Session : public std::enable_shared_from_this<Session> {
 
   virtual ~Session() = default;
 
-  auto& socket() { return _socket; }
+  auto socket() -> auto& { return _socket; }
 
-  auto& socket() const { return _socket; }
+  auto socket() const -> auto& { return _socket; }
 
   auto start() -> void;
 
@@ -106,7 +114,7 @@ class Session : public std::enable_shared_from_this<Session> {
   // Debug info
   std::uint64_t _id;
   std::string _remote_ip;
-  std::uint16_t _remote_port;
+  std::uint16_t _remote_port{};
 };
 
 }  // namespace fz::net

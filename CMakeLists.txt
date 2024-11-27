@@ -29,22 +29,22 @@ endif()
 
 set(FZ_NET_EXTERNAL_INCLUDE_DIR ${FZ_NET_EXTERNAL_INCLUDE_DIR} ${FZ_NET_ASIO_INCLUDE_DIR})
 
-add_subdirectory(src)
-add_subdirectory(test)
+find_package(spdlog REQUIRED)
+set(FZ_NET_EXTERNAL_LIBRARIES spdlog::spdlog)
+
+include_directories(${FZ_NET_PUBLIC_INCLUDE_DIR} ${FZ_NET_EXTERNAL_INCLUDE_DIR})
+link_libraries(${FZ_NET_EXTERNAL_LIBRARIES})
 
 set(FZ_NET_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
+
+add_subdirectory(src)
+add_subdirectory(test)
 
 install(
   EXPORT fz_net-targets
   FILE fz_net-targets.cmake
   NAMESPACE fz::
   DESTINATION ${FZ_NET_INSTALL_PREFIX}/lib/cmake/fz_net
-)
-
-# install include
-install(
-  DIRECTORY ${FZ_NET_PUBLIC_INCLUDE_DIR}
-  DESTINATION ${FZ_NET_INSTALL_PREFIX}/include
 )
 
 # install config files
@@ -61,7 +61,7 @@ write_basic_package_version_file(
 )
 install(
   FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/fz_net-config.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/fz_net-config.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/fz_net-config-version.cmake
   DESTINATION ${FZ_NET_INSTALL_PREFIX}/lib/cmake/fz_net
 )

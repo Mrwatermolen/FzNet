@@ -13,11 +13,11 @@ class Loop {
 
   Loop(const Loop &) = delete;
 
-  Loop &operator=(const Loop &) = delete;
+  auto operator=(const Loop &) -> Loop & = delete;
 
   Loop(Loop &&) noexcept = delete;
 
-  Loop &operator=(Loop &&) = delete;
+  auto operator=(Loop &&) -> Loop & = delete;
 
   ~Loop();
 
@@ -27,7 +27,7 @@ class Loop {
 
   auto postTask(std::function<void(void)>) -> void;
 
-  auto &getIoContext() { return _io_context; }
+  auto getIoContext() -> auto & { return _io_context; }
 
  private:
   std::thread _thread;

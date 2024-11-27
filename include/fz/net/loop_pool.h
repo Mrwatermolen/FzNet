@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "loop.h"
+#include "fz/net/loop.h"
 
 namespace fz::net {
 

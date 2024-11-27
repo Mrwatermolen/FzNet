@@ -5,7 +5,7 @@
 #include <string>
 #include <string_view>
 
-#include "net/session.h"
+#include "fz/net/session.h"
 
 namespace fz::net {
 
@@ -22,7 +22,7 @@ class TcpClient {
         _port{port},
         _session{std::make_shared<Session>(loop)} {}
 
-  auto session() const { return _session; }
+  [[nodiscard]] auto session() const { return _session; }
 
   auto session() { return _session; }
 
